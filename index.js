@@ -299,6 +299,8 @@ function extractOpenAIContent(content) {
 
 function extractOciText(data) {
   const candidates = [
+    data?.choices?.[0]?.message?.content?.[0]?.text,
+    data?.choices?.[0]?.message?.content?.map?.((item) => item?.text || "").filter?.(Boolean)?.join?.("\n"),
     data?.chatResponse?.choices?.[0]?.message?.content?.[0]?.text,
     data?.chatResponse?.message?.content?.[0]?.text,
     data?.chatResponse?.text,

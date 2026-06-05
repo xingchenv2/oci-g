@@ -105,5 +105,6 @@ New-API will call:
 - Store OCI credentials in Worker secrets only.
 - Listing a model in `/v1/models` does **not** guarantee your OCI tenant has permission for it.
 - The current bridge now sends OCI **GENERIC** chat format for non-Cohere-style chat models such as Gemini/Llama/Grok/GPT-OSS.
+- The bridge extracts assistant text from OCI Generic responses using top-level `choices[0].message.content[*].text`.
 - Cohere-family models may still need a dedicated request-shape branch later if OCI rejects them.
 - OCI response shapes may vary slightly by model; if needed, adjust `extractOciText()`.
