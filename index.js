@@ -19,17 +19,14 @@ export default {
 
       if (request.method === "GET" && url.pathname === "/v1/models") {
         validateBearer(request, env);
-        const modelId = env.OCI_MODEL_ID || "google.gemini-2.5-pro";
         return json(
           {
             object: "list",
-            data: [
-              {
-                id: modelId,
-                object: "model",
-                owned_by: "oci"
-              }
-            ]
+            data: getSupportedModels(env).map((id) => ({
+              id,
+              object: "model",
+              owned_by: "oci"
+            }))
           },
           200,
           corsHeaders
@@ -43,7 +40,7 @@ export default {
         validateBearer(request, env);
 
         const openaiBody = await request.json();
-        const model = openaiBody.model || env.OCI_MODEL_ID || "google.gemini-2.5-pro";
+        const model = openaiBody.model || env.OCI_MODEL_ID || DEFAULT_MODELS[0];
         const maxTokens = openaiBody.max_tokens ?? 1024;
         const temperature = openaiBody.temperature ?? 0.7;
         const messages = Array.isArray(openaiBody.messages) ? openaiBody.messages : [];
@@ -132,7 +129,8 @@ export default {
                 message: "OCI request failed",
                 type: "upstream_error",
                 status: upstreamResponse.status,
-                details: ociData
+                details: ociData,
+                requested_model: model
               }
             },
             502,
@@ -182,6 +180,55 @@ export default {
     }
   }
 };
+
+const DEFAULT_MODELS = [
+  "cohere.command-a-03-2025 v1.0",
+  "cohere.command-a-vision v1.0",
+  "cohere.command-latest",
+  "cohere.command-plus-latest",
+  "cohere.command-r-08-2024 v2.0",
+  "cohere.command-r-08-2024 v1.7",
+  "cohere.command-r-plus-08-2024 v2.0",
+  "cohere.command-r-plus-08-2024 v1.6",
+  "google.gemini-2.5-flash",
+  "google.gemini-2.5-flash-lite",
+  "google.gemini-2.5-pro",
+  "meta.llama-3.1-405b-instruct",
+  "meta.llama-3.2-90b-vision-instruct",
+  "meta.llama-3.3-70b-instruct",
+  "meta.llama-4-maverick-17b-128e-instruct-fp8",
+  "meta.llama-4-scout-17b-16e-instruct",
+  "openai.gpt-oss-120b",
+  "openai.gpt-oss-20b",
+  "xai.grok-3",
+  "xai.grok-3-fast",
+  "xai.grok-3-mini",
+  "xai.grok-3-mini-fast",
+  "xai.grok-4",
+  "xai.grok-4-1-fast-non-reasoning",
+  "xai.grok-4-1-fast-reasoning",
+  "xai.grok-4-fast-non-reasoning",
+  "xai.grok-4-fast-reasoning",
+  "xai.grok-4.20-0309-non-reasoning",
+  "xai.grok-4.20-0309-reasoning",
+  "xai.grok-4.20-non-reasoning",
+  "xai.grok-4.20-reasoning",
+  "xai.grok-4.3",
+  "xai.grok-code-fast-1",
+  "xai.grok-voice-agent"
+];
+
+function getSupportedModels(env) {
+  const extra = env.OCI_MODELS || env.OPENAI_MODELS || "";
+  if (!extra.trim()) return DEFAULT_MODELS;
+
+  const configured = extra
+    .split(/\r?\n|,/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return configured.length ? configured : DEFAULT_MODELS;
+}
 
 function validateBearer(request, env) {
   const expected = env.WORKER_API_KEY;
