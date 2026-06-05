@@ -43,7 +43,6 @@ export default {
         const maxTokens = openaiBody.max_tokens ?? 1024;
         const temperature = openaiBody.temperature ?? 0.7;
         const messages = Array.isArray(openaiBody.messages) ? openaiBody.messages : [];
-        const promptText = normalizeMessages(messages);
 
         const region = env.OCI_REGION || "us-phoenix-1";
         const host = `inference.generativeai.${region}.oci.oraclecloud.com`;
@@ -57,21 +56,7 @@ export default {
             servingType: "ON_DEMAND",
             modelId: model
           },
-          chatRequest: {
-            messages: [
-              {
-                role: "USER",
-                content: [
-                  {
-                    type: "TEXT",
-                    text: promptText || "你好"
-                  }
-                ]
-              }
-            ],
-            maxTokens,
-            temperature
-          }
+          chatRequest: buildChatRequest(model, messages, { maxTokens, temperature })
         };
 
         const bodyText = JSON.stringify(ociBody);
@@ -129,7 +114,8 @@ export default {
                 type: "upstream_error",
                 status: upstreamResponse.status,
                 details: ociData,
-                requested_model: model
+                requested_model: model,
+                request_preview: ociBody
               }
             },
             502,
@@ -217,6 +203,55 @@ const DEFAULT_MODELS = [
   "xai.grok-voice-agent"
 ];
 
+function buildChatRequest(model, messages, options) {
+  // Gemini / Llama / Grok / GPT-OSS families in OCI generally use GENERIC chat format.
+  return buildGenericChatRequest(messages, options);
+}
+
+function buildGenericChatRequest(messages, options) {
+  const normalizedMessages = (messages.length ? messages : [{ role: "user", content: "你好" }])
+    .map(toGenericMessage)
+    .filter(Boolean);
+
+  return {
+    apiFormat: "GENERIC",
+    messages: normalizedMessages,
+    maxTokens: options.maxTokens,
+    temperature: options.temperature
+  };
+}
+
+function toGenericMessage(message) {
+  const content = extractOpenAIContent(message?.content);
+  if (!content) return null;
+
+  return {
+    role: mapRole(message?.role),
+    content: [
+      {
+        type: "TEXT",
+        text: content
+      }
+    ]
+  };
+}
+
+function mapRole(role) {
+  switch ((role || "user").toLowerCase()) {
+    case "assistant":
+      return "ASSISTANT";
+    case "system":
+      return "SYSTEM";
+    case "developer":
+      return "DEVELOPER";
+    case "tool":
+      return "TOOL";
+    case "user":
+    default:
+      return "USER";
+  }
+}
+
 function getSupportedModels(env) {
   const extra = env.OCI_MODELS || env.OPENAI_MODELS || "";
   if (!extra.trim()) return DEFAULT_MODELS;
@@ -242,17 +277,6 @@ function validateBearer(request, env) {
     error.type = "auth_error";
     throw error;
   }
-}
-
-function normalizeMessages(messages) {
-  return messages
-    .map((message) => {
-      const role = message?.role || "user";
-      const content = extractOpenAIContent(message?.content);
-      return `${role}: ${content}`.trim();
-    })
-    .filter(Boolean)
-    .join("\n\n");
 }
 
 function extractOpenAIContent(content) {
@@ -317,6 +341,7 @@ async function signWithPrivateKey(pem, signingString) {
 async function importPrivateKey(pem) {
   const clean = pem
     .replace(/-----BEGIN PRIVATE KEY-----/g, "")
+…redacted…
     .replace(/-----END PRIVATE KEY-----/g, "")
     .replace(/\s+/g, "");
 
