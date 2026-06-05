@@ -6,7 +6,7 @@ export default {
       "Access-Control-Allow-Headers": "Content-Type, Authorization"
     };
 
-    const workerVersion = "2026-06-05-oci-debug-v2";
+    const workerVersion = "2026-06-05-oci-stream-v1";
 
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders });
@@ -128,6 +128,7 @@ export default {
         const replyText = ensureReplyText(extractOciText(ociData), ociData, env);
         const outputTokens = estimateTokens(replyText);
         const inputTokens = estimateTokens(JSON.stringify(openaiBody));
+        const wantsStream = openaiBody.stream === true;
         const openaiResponse = {
           id: `chatcmpl-${crypto.randomUUID().replace(/-/g, "").slice(0, 24)}`,
           object: "chat.completion",
@@ -150,6 +151,10 @@ export default {
           },
           system_fingerprint: workerVersion
         };
+
+        if (wantsStream) {
+          return streamChatCompletion(openaiResponse, corsHeaders);
+        }
 
         return json(openaiResponse, 200, corsHeaders);
       }
@@ -373,6 +378,74 @@ function ensureReplyText(replyText, ociData, env) {
 function estimateTokens(text) {
   if (!text) return 1;
   return Math.max(1, Math.ceil(String(text).length / 4));
+}
+
+function streamChatCompletion(openaiResponse, extraHeaders = {}) {
+  const encoder = new TextEncoder();
+  const choice = openaiResponse.choices?.[0] || {};
+  const content = String(choice.message?.content || "[EMPTY_REPLY_FALLBACK]");
+  const id = openaiResponse.id;
+  const created = openaiResponse.created;
+  const model = openaiResponse.model;
+
+  const chunks = [
+    {
+      id,
+      object: "chat.completion.chunk",
+      created,
+      model,
+      choices: [
+        {
+          index: 0,
+          delta: { role: "assistant" },
+          finish_reason: null
+        }
+      ],
+      system_fingerprint: openaiResponse.system_fingerprint
+    },
+    {
+      id,
+      object: "chat.completion.chunk",
+      created,
+      model,
+      choices: [
+        {
+          index: 0,
+          delta: { content },
+          finish_reason: null
+        }
+      ],
+      system_fingerprint: openaiResponse.system_fingerprint
+    },
+    {
+      id,
+      object: "chat.completion.chunk",
+      created,
+      model,
+      choices: [
+        {
+          index: 0,
+          delta: {},
+          finish_reason: choice.finish_reason || "stop"
+        }
+      ],
+      usage: openaiResponse.usage,
+      system_fingerprint: openaiResponse.system_fingerprint
+    }
+  ];
+
+  const body = chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join("") + "data: [DONE]\n\n";
+
+  return new Response(encoder.encode(body), {
+    status: 200,
+    headers: {
+      ...extraHeaders,
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      "Connection": "keep-alive",
+      "X-Accel-Buffering": "no"
+    }
+  });
 }
 
 async function sha256Base64(inputBytes) {
