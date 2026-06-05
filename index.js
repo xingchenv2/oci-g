@@ -17,8 +17,7 @@ export default {
         return json({ ok: true, service: "oci-openai-worker" }, 200, corsHeaders);
       }
 
-      if (request.method === "GET" && url.pathname === "/v1/models") {
-        validateBearer(request, env);
+      if (request.method === "GET" && (url.pathname === "/v1/models" || url.pathname === "/models")) {
         return json(
           {
             object: "list",

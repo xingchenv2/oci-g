@@ -6,6 +6,7 @@ Cloudflare Worker bridge for **OpenAI-compatible** clients (such as **New-API**)
 
 - `GET /health`
 - `GET /v1/models`
+- `GET /models`
 - `POST /v1/chat/completions`
 - `POST /chat/completions`
 
@@ -13,7 +14,7 @@ Cloudflare Worker bridge for **OpenAI-compatible** clients (such as **New-API**)
 
 Set these in Cloudflare Workers or via Wrangler:
 
-- `WORKER_API_KEY` - API key that New-API will send as `Bearer ...`
+- `WORKER_API_KEY` - API key used for chat requests; model-list requests are intentionally public for compatibility with some panels
 - `OCI_USER`
 - `OCI_FINGERPRINT`
 - `OCI_TENANCY`
@@ -95,7 +96,7 @@ Create an **OpenAI** channel in New-API:
 
 New-API will call:
 
-- `GET /v1/models`
+- `GET /v1/models` (or sometimes model discovery without auth depending on version)
 - `POST /v1/chat/completions`
 
 ## Notes
