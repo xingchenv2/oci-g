@@ -298,23 +298,57 @@ function extractOpenAIContent(content) {
 }
 
 function extractOciText(data) {
-  const candidates = [
+  const directCandidates = [
     data?.choices?.[0]?.message?.content?.[0]?.text,
-    data?.choices?.[0]?.message?.content?.map?.((item) => item?.text || "").filter?.(Boolean)?.join?.("\n"),
+    data?.choices?.[0]?.message?.content,
+    data?.choices?.[0]?.message?.text,
     data?.chatResponse?.choices?.[0]?.message?.content?.[0]?.text,
     data?.chatResponse?.message?.content?.[0]?.text,
     data?.chatResponse?.text,
-    data?.choices?.[0]?.message?.content,
     data?.output?.text,
     data?.data?.text,
     data?.message
   ];
 
-  for (const value of candidates) {
-    if (typeof value === "string" && value.trim()) return value;
+  for (const value of directCandidates) {
+    const flattened = flattenText(value);
+    if (flattened) return flattened;
   }
 
+  const deepFlattened = flattenText(data);
+  if (deepFlattened) return deepFlattened;
+
   return JSON.stringify(data);
+}
+
+function flattenText(value) {
+  if (!value) return "";
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed;
+  }
+
+  if (Array.isArray(value)) {
+    const parts = value.map(flattenText).filter(Boolean);
+    return parts.join("\n").trim();
+  }
+
+  if (typeof value === "object") {
+    const preferredKeys = ["text", "content", "output_text", "message"];
+
+    for (const key of preferredKeys) {
+      if (key in value) {
+        const extracted = flattenText(value[key]);
+        if (extracted) return extracted;
+      }
+    }
+
+    const parts = Object.values(value).map(flattenText).filter(Boolean);
+    return parts.join("\n").trim();
+  }
+
+  return "";
 }
 
 async function sha256Base64(inputBytes) {
