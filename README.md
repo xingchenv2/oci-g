@@ -23,6 +23,7 @@ Set these in Cloudflare Workers or via Wrangler:
 - `OCI_COMPARTMENT_ID` - optional; if omitted, falls back to `OCI_TENANCY`
 - `OCI_MODEL_ID` - optional; default model used when the request does not specify `model`
 - `OCI_MODELS` - optional; comma-separated or newline-separated model list exposed by `/v1/models`
+- `DEBUG_OCI_RESPONSE` - optional; set to `true` to return raw OCI JSON in assistant content when text extraction fails
 
 ## Default exposed models
 

@@ -123,7 +123,7 @@ export default {
           );
         }
 
-        const replyText = extractOciText(ociData);
+        const replyText = ensureReplyText(extractOciText(ociData), ociData, env);
         const openaiResponse = {
           id: `chatcmpl-${crypto.randomUUID().replace(/-/g, "").slice(0, 24)}`,
           object: "chat.completion",
@@ -349,6 +349,20 @@ function flattenText(value) {
   }
 
   return "";
+}
+
+function ensureReplyText(replyText, ociData, env) {
+  if (typeof replyText === "string" && replyText.trim()) {
+    return replyText.trim();
+  }
+
+  const raw = JSON.stringify(ociData, null, 2);
+
+  if ((env.DEBUG_OCI_RESPONSE || "").toLowerCase() === "true") {
+    return `[DEBUG] OCI raw response:\n${raw}`;
+  }
+
+  return `[OCI returned no extractable text]\n${raw}`;
 }
 
 async function sha256Base64(inputBytes) {
