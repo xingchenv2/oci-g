@@ -6,6 +6,8 @@ export default {
       "Access-Control-Allow-Headers": "Content-Type, Authorization"
     };
 
+    const workerVersion = "2026-06-05-oci-debug-v2";
+
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders });
     }
@@ -14,7 +16,7 @@ export default {
 
     try {
       if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/health")) {
-        return json({ ok: true, service: "oci-openai-worker" }, 200, corsHeaders);
+        return json({ ok: true, service: "oci-openai-worker", version: workerVersion }, 200, corsHeaders);
       }
 
       if (request.method === "GET" && (url.pathname === "/v1/models" || url.pathname === "/models")) {
@@ -124,6 +126,8 @@ export default {
         }
 
         const replyText = ensureReplyText(extractOciText(ociData), ociData, env);
+        const outputTokens = estimateTokens(replyText);
+        const inputTokens = estimateTokens(JSON.stringify(openaiBody));
         const openaiResponse = {
           id: `chatcmpl-${crypto.randomUUID().replace(/-/g, "").slice(0, 24)}`,
           object: "chat.completion",
@@ -134,16 +138,17 @@ export default {
               index: 0,
               message: {
                 role: "assistant",
-                content: replyText
+                content: String(replyText || "[EMPTY_REPLY_FALLBACK]")
               },
               finish_reason: "stop"
             }
           ],
           usage: {
-            prompt_tokens: 0,
-            completion_tokens: 0,
-            total_tokens: 0
-          }
+            prompt_tokens: inputTokens,
+            completion_tokens: outputTokens,
+            total_tokens: inputTokens + outputTokens
+          },
+          system_fingerprint: workerVersion
         };
 
         return json(openaiResponse, 200, corsHeaders);
@@ -363,6 +368,11 @@ function ensureReplyText(replyText, ociData, env) {
   }
 
   return `[OCI returned no extractable text]\n${raw}`;
+}
+
+function estimateTokens(text) {
+  if (!text) return 1;
+  return Math.max(1, Math.ceil(String(text).length / 4));
 }
 
 async function sha256Base64(inputBytes) {

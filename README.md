@@ -25,6 +25,10 @@ Set these in Cloudflare Workers or via Wrangler:
 - `OCI_MODELS` - optional; comma-separated or newline-separated model list exposed by `/v1/models`
 - `DEBUG_OCI_RESPONSE` - optional; set to `true` to return raw OCI JSON in assistant content when text extraction fails
 
+## Deployment verification
+
+After deployment, open `/health` and confirm the reported `version` matches the latest code expectation.
+
 ## Default exposed models
 
 If `OCI_MODELS` is not set, `/v1/models` returns these defaults:
