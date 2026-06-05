@@ -341,7 +341,6 @@ async function signWithPrivateKey(pem, signingString) {
 async function importPrivateKey(pem) {
   const clean = pem
     .replace(/-----BEGIN PRIVATE KEY-----/g, "")
-…redacted…
     .replace(/-----END PRIVATE KEY-----/g, "")
     .replace(/\s+/g, "");
 
